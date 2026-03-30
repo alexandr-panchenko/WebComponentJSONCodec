@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebComponentJSONCodec Demo</title>
+    <style>
+      :root {
+        --bg: #f4efe6;
+        --panel: #fffaf2;
+        --ink: #1f2933;
+        --muted: #52606d;
+        --line: #d9cbb7;
+        --accent: #bf5b39;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(191, 91, 57, 0.12), transparent 32%),
+          linear-gradient(180deg, #f9f4ec 0%, #f0e7da 100%);
+      }
+
+      main {
+        width: min(1200px, calc(100vw - 32px));
+        margin: 32px auto;
+      }
+
+      h1 {
+        font-size: clamp(2rem, 4vw, 3.5rem);
+        margin: 0 0 12px;
+      }
+
+      p {
+        color: var(--muted);
+        max-width: 70ch;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      .panel {
+        background: color-mix(in srgb, var(--panel) 92%, white);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: 0 20px 60px rgba(50, 30, 10, 0.08);
+      }
+
+      .panel h2 {
+        margin-top: 0;
+        font-size: 1rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      textarea,
+      pre {
+        width: 100%;
+        min-height: 320px;
+        margin: 0;
+        padding: 14px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: #fffdfa;
+        font: 14px/1.5 "IBM Plex Mono", "SFMono-Regular", monospace;
+        white-space: pre-wrap;
+        overflow: auto;
+      }
+
+      textarea {
+        resize: vertical;
+      }
+
+      button {
+        margin-top: 16px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--accent);
+        color: white;
+        padding: 10px 16px;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      @media (max-width: 960px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>WebComponentJSONCodec</h1>
+      <p>
+        Inspect the constrained HTML input, the deserialized component JSON, and
+        the canonical serialized HTML side by side.
+      </p>
+
+      <button id="rerun">Re-run codec</button>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>HTML Input</h2>
+          <textarea id="htmlInput"></textarea>
+        </article>
+        <article class="panel">
+          <h2>JSON Output</h2>
+          <pre id="jsonOutput"></pre>
+        </article>
+        <article class="panel">
+          <h2>Serialized HTML</h2>
+          <pre id="htmlOutput"></pre>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+  </html>
