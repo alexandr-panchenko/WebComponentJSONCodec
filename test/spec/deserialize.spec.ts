@@ -282,6 +282,55 @@ describe("deserializeHtml", () => {
     ]);
   });
 
+  test("accepts full HTML documents and embedded head schemas", () => {
+    expect(
+      deserializeHtml(
+        `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Board</title>
+              <script type="application/json" data-schema="board-card">
+                {
+                  "title": { "type": "string", "default": "" },
+                  "position.x": { "type": "number", "default": 0 },
+                  "position.y": { "type": "number", "default": 0 },
+                  "tags": { "type": "string[]", "default": [] }
+                }
+              </script>
+              <script type="application/json" data-schema="board-note">
+                {
+                  "text": { "type": "string", "default": "" }
+                }
+              </script>
+            </head>
+            <body>
+              <board-card title="Roadmap" position.x="10" position.y="20" tags="alpha,beta"></board-card>
+              <board-note text="Ship demo"></board-note>
+            </body>
+          </html>
+        `,
+        {},
+        { multipleRoots: true },
+      ),
+    ).toMatchObject([
+      {
+        type: "board-card",
+        properties: {
+          title: "Roadmap",
+          position: { x: 10, y: 20 },
+          tags: ["alpha", "beta"],
+        },
+        children: [],
+      },
+      {
+        type: "board-note",
+        properties: { text: "Ship demo" },
+        children: [],
+      },
+    ]);
+  });
+
   test("decodes supported HTML entities in attribute values", () => {
     const registry = createSchemaRegistry([
       schemaFromTable("test-component", [

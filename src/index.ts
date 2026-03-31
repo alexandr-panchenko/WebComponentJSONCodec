@@ -1,7 +1,7 @@
 export { parseHtmlToAst } from "./syntax/parser";
 export { parseDocument } from "./parseDocument";
 export { deserializeHtml } from "./mapping/deserialize";
-export { serializeJson } from "./serialization/serialize";
+export { serializeDocumentHtml, serializeJson } from "./serialization/serialize";
 export { createSchemaRegistry, defineComponentSchema } from "./schema/schema";
 export type {
   ComponentNode,
@@ -11,6 +11,7 @@ export type {
   ElementNode,
   JsonValue,
   SchemaRegistry,
+  SerializeDocumentOptions,
   SerializeOptions,
   SyntaxNode,
 } from "./types";

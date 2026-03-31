@@ -3,10 +3,18 @@ import type {
   ComponentSchema,
   JsonValue,
   SchemaRegistry,
+  SerializeDocumentOptions,
   SerializeOptions,
 } from "../types";
 import { escapeHtmlAttribute } from "../utils/html";
-import { getValueAtPath, isPlainObject, setValueAtPath, sortObject } from "../utils/object";
+import {
+  cloneJson,
+  deleteValueAtPath,
+  getValueAtPath,
+  isPlainObject,
+  setValueAtPath,
+  sortObject,
+} from "../utils/object";
 
 const DEFAULT_INDENT = "  ";
 
@@ -17,8 +25,43 @@ export function serializeJson(
 ): string {
   const indent = options.indent ?? DEFAULT_INDENT;
   const nodes = Array.isArray(nodeOrNodes) ? nodeOrNodes : [nodeOrNodes];
+  return serializeNodes(nodes, registry, options.includeDefaults ?? false, 0, indent);
+}
+
+export function serializeDocumentHtml(
+  nodeOrNodes: ComponentNode | ComponentNode[],
+  registry: SchemaRegistry = {},
+  options: SerializeDocumentOptions = {},
+): string {
+  const indent = options.indent ?? DEFAULT_INDENT;
+  const nodes = Array.isArray(nodeOrNodes) ? nodeOrNodes : [nodeOrNodes];
+  const title = options.title ?? "Web Component Document";
+  const headMarkup = serializeSchemaScripts(registry, indent);
+  const bodyMarkup = serializeNodes(nodes, registry, options.includeDefaults ?? false, 2, indent);
+
+  return [
+    "<!DOCTYPE html>",
+    "<html>",
+    `${indent}<head>`,
+    `${indent.repeat(2)}<title>${escapeHtmlAttribute(title)}</title>`,
+    ...headMarkup,
+    `${indent}</head>`,
+    `${indent}<body>`,
+    ...(bodyMarkup === "" ? [] : [bodyMarkup]),
+    `${indent}</body>`,
+    "</html>",
+  ].join("\n");
+}
+
+function serializeNodes(
+  nodes: ComponentNode[],
+  registry: SchemaRegistry,
+  includeDefaults: boolean,
+  depth: number,
+  indent: string,
+): string {
   return nodes
-    .map((node) => serializeNode(node, registry[node.type], registry, options.includeDefaults ?? false, 0, indent))
+    .map((node) => serializeNode(node, registry[node.type], registry, includeDefaults, depth, indent))
     .join("\n");
 }
 
@@ -96,7 +139,7 @@ function collectComplexProperties(
   schema: ComponentSchema | undefined,
   includeDefaults: boolean,
 ): Record<string, JsonValue> | undefined {
-  const result: Record<string, JsonValue> = {};
+  const remaining = cloneJson(properties);
 
   if (schema) {
     for (const [path, definition] of Object.entries(schema.properties)) {
@@ -105,10 +148,11 @@ function collectComplexProperties(
         continue;
       }
       if (!includeDefaults && definition.default !== undefined && JSON.stringify(value) === JSON.stringify(definition.default)) {
+        deleteValueAtPath(remaining, path);
         continue;
       }
-      if (formatScalarForAttribute(value) === undefined) {
-        setValueAtPath(result, path, value);
+      if (formatScalarForAttribute(value) !== undefined) {
+        deleteValueAtPath(remaining, path);
       }
     }
   }
@@ -117,12 +161,12 @@ function collectComplexProperties(
     if (schema && key in schema.properties) {
       continue;
     }
-    if (formatScalarForAttribute(value) === undefined) {
-      result[key] = value;
+    if (formatScalarForAttribute(value) !== undefined) {
+      deleteValueAtPath(remaining, key);
     }
   }
 
-  return Object.keys(result).length > 0 ? result : undefined;
+  return Object.keys(remaining).length > 0 ? remaining : undefined;
 }
 
 function formatScalarForAttribute(value: JsonValue): string | true | undefined {
@@ -149,4 +193,29 @@ function formatAttribute(name: string, value: string | true): string {
     return ` ${name}`;
   }
   return ` ${name}="${escapeHtmlAttribute(value)}"`;
+}
+
+function serializeSchemaScripts(
+  registry: SchemaRegistry,
+  indent: string,
+): string[] {
+  return Object.keys(registry)
+    .sort((left, right) => left.localeCompare(right))
+    .map((componentType) => {
+      const schema = registry[componentType];
+      if (!schema) {
+        return "";
+      }
+      const payload: Record<string, JsonValue> = {};
+
+      for (const [path, definition] of Object.entries(schema.properties).sort(([left], [right]) => left.localeCompare(right))) {
+        payload[path] = {
+          type: definition.type,
+          ...(definition.default !== undefined ? { default: definition.default } : {}),
+        };
+      }
+
+      return `${indent.repeat(2)}<script type="application/json" data-schema="${escapeHtmlAttribute(componentType)}">\n${indent.repeat(3)}${JSON.stringify(sortObject(payload), null, 2).replaceAll("\n", `\n${indent.repeat(3)}`)}\n${indent.repeat(2)}</script>`;
+    })
+    .filter((markup) => markup !== "");
 }

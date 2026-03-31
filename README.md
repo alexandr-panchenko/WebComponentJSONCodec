@@ -33,9 +33,11 @@ Unsupported or malformed input may be rejected. YAML is intentionally out of sco
 Implemented baseline support includes:
 
 - elements, nested elements, and multiple roots
+- full HTML documents with `<!DOCTYPE html>`, `<head>`, and `<body>`
 - quoted attributes and boolean attributes
 - comments in the syntax layer, ignored in mapping
 - raw-text `<script type="application/json">` blocks
+- embedded component schemas via `<head><script type="application/json" data-schema="...">`
 - schema-aware defaults and primitive coercion
 - dot-path property mapping
 - primitive array coercion from attributes
@@ -53,35 +55,39 @@ Current limitations:
 ## Example: HTML to JSON
 
 ```html
-<board-card title="Roadmap" position.x="10" position.y="20" tags="alpha,beta">
-  <script type="application/json" data-property="data">
-    { "points": [[1, 2], [3, 4]] }
-  </script>
-  <board-note text="child"></board-note>
-</board-card>
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="application/json" data-schema="board-card">
+      {
+        "title": { "type": "string", "default": "" },
+        "position.x": { "type": "number", "default": 0 },
+        "position.y": { "type": "number", "default": 0 },
+        "tags": { "type": "string[]", "default": [] },
+        "data.points": { "type": "number[][]", "default": [] }
+      }
+    </script>
+    <script type="application/json" data-schema="board-note">
+      {
+        "text": { "type": "string", "default": "" }
+      }
+    </script>
+  </head>
+  <body>
+    <board-card title="Roadmap" position.x="10" position.y="20" tags="alpha,beta">
+      <script type="application/json" data-property="data">
+        { "points": [[1, 2], [3, 4]] }
+      </script>
+      <board-note text="child"></board-note>
+    </board-card>
+  </body>
+</html>
 ```
 
 ```ts
-import {
-  createSchemaRegistry,
-  defineComponentSchema,
-  deserializeHtml,
-} from "web-component-json-codec";
+import { deserializeHtml } from "web-component-json-codec";
 
-const registry = createSchemaRegistry([
-  defineComponentSchema("board-card", [
-    { property: "title", type: "string", default: "" },
-    { property: "position.x", type: "number", default: 0 },
-    { property: "position.y", type: "number", default: 0 },
-    { property: "tags", type: "string[]", default: [] },
-    { property: "data.points", type: "number[][]", default: [] },
-  ]),
-  defineComponentSchema("board-note", [
-    { property: "text", type: "string", default: "" },
-  ]),
-]);
-
-const component = deserializeHtml(html, registry);
+const [component] = deserializeHtml(html, {}, { multipleRoots: true });
 ```
 
 ```json
@@ -108,34 +114,70 @@ const component = deserializeHtml(html, registry);
 ## Example: JSON to HTML
 
 ```ts
-import { serializeJson } from "web-component-json-codec";
+import { serializeDocumentHtml } from "web-component-json-codec";
 
-const html = serializeJson({
-  type: "complex-component",
-  properties: {
-    title: "Complex",
-    points: [[0, 0], [10, 20]],
-    metadata: { author: "Ada", version: 2 }
+const html = serializeDocumentHtml(
+  {
+    type: "complex-component",
+    properties: {
+      title: "Complex",
+      points: [[0, 0], [10, 20]],
+      metadata: { author: "Ada", version: 2 }
+    },
+    children: []
   },
-  children: []
-});
+  {
+    "complex-component": {
+      type: "complex-component",
+      properties: {
+        title: { type: "string", default: "" },
+        points: { type: "number[][]", default: [] },
+        metadata: { type: "json", default: {} }
+      }
+    }
+  }
+);
 ```
 
 ```html
-<complex-component title="Complex">
-  <script type="application/json">
-    {
-      "metadata": {
-        "author": "Ada",
-        "version": 2
-      },
-      "points": [
-        [0, 0],
-        [10, 20]
-      ]
-    }
-  </script>
-</complex-component>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Web Component Document</title>
+    <script type="application/json" data-schema="complex-component">
+      {
+        "metadata": {
+          "default": {},
+          "type": "json"
+        },
+        "points": {
+          "default": [],
+          "type": "number[][]"
+        },
+        "title": {
+          "default": "",
+          "type": "string"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <complex-component title="Complex">
+      <script type="application/json">
+        {
+          "metadata": {
+            "author": "Ada",
+            "version": 2
+          },
+          "points": [
+            [0, 0],
+            [10, 20]
+          ]
+        }
+      </script>
+    </complex-component>
+  </body>
+</html>
 ```
 
 ## Public API
@@ -143,6 +185,7 @@ const html = serializeJson({
 - `parseHtmlToAst(input)`
 - `parseDocument(input)`
 - `deserializeHtml(input, schemaRegistry, options?)`
+- `serializeDocumentHtml(nodeOrNodes, schemaRegistry?, options?)`
 - `serializeJson(nodeOrNodes, schemaRegistry?, options?)`
 - `defineComponentSchema(type, properties)`
 - `createSchemaRegistry(schemas)`

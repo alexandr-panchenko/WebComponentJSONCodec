@@ -70,3 +70,7 @@ export interface SerializeOptions {
   includeDefaults?: boolean;
   indent?: string;
 }
+
+export interface SerializeDocumentOptions extends SerializeOptions {
+  title?: string;
+}

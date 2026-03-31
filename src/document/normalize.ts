@@ -14,22 +14,73 @@ export interface NormalizedElement {
   children: NormalizedElement[];
 }
 
+export interface NormalizedSchemaPayload {
+  componentType: string;
+  content: string;
+}
+
 export interface NormalizedDocument {
   roots: NormalizedElement[];
+  schemaPayloads: NormalizedSchemaPayload[];
 }
 
 export function parseDocumentTree(document: DocumentNode): NormalizedDocument {
+  const roots: NormalizedElement[] = [];
+  const schemaPayloads: NormalizedSchemaPayload[] = [];
+
+  for (const node of document.roots) {
+    if (node.kind === "comment") {
+      continue;
+    }
+    if (node.kind === "text") {
+      continue;
+    }
+    if (node.tagName.toLowerCase() === "html") {
+      const normalizedHtml = normalizeHtmlDocument(node);
+      roots.push(...normalizedHtml.roots);
+      schemaPayloads.push(...normalizedHtml.schemaPayloads);
+      continue;
+    }
+    roots.push(normalizeElement(node));
+  }
+
   return {
-    roots: document.roots.flatMap(normalizeRootNode),
+    roots,
+    schemaPayloads,
+  };
+}
+
+function normalizeHtmlDocument(node: ElementNode): NormalizedDocument {
+  const roots: NormalizedElement[] = [];
+  const schemaPayloads: NormalizedSchemaPayload[] = [];
+
+  for (const child of node.children) {
+    if (child.kind === "comment" || child.kind === "text") {
+      continue;
+    }
+
+    const tagName = child.tagName.toLowerCase();
+    if (tagName === "head") {
+      schemaPayloads.push(...collectSchemaPayloads(child));
+      continue;
+    }
+    if (tagName === "body") {
+      roots.push(...child.children.flatMap(normalizeRootNode));
+      continue;
+    }
+
+    roots.push(normalizeElement(child));
+  }
+
+  return {
+    roots,
+    schemaPayloads,
   };
 }
 
 function normalizeRootNode(node: SyntaxNode): NormalizedElement[] {
-  if (node.kind === "comment") {
+  if (node.kind !== "element") {
     return [];
-  }
-  if (node.kind === "text") {
-    return node.value.trim() === "" ? [] : [];
   }
   return [normalizeElement(node)];
 }
@@ -67,6 +118,32 @@ function normalizeElement(node: ElementNode): NormalizedElement {
     scriptPayloads,
     children,
   };
+}
+
+function collectSchemaPayloads(node: ElementNode): NormalizedSchemaPayload[] {
+  const schemaPayloads: NormalizedSchemaPayload[] = [];
+
+  for (const child of node.children) {
+    if (child.kind !== "element" || child.tagName.toLowerCase() !== "script") {
+      continue;
+    }
+
+    const type = getAttributeValue(child.attributes, "type")?.toLowerCase();
+    const componentType = getAttributeValue(child.attributes, "data-schema")?.toLowerCase();
+    if (type !== "application/json" || !componentType) {
+      continue;
+    }
+
+    schemaPayloads.push({
+      componentType,
+      content: child.children
+        .filter((grandchild): grandchild is Extract<SyntaxNode, { kind: "text" }> => grandchild.kind === "text")
+        .map((grandchild) => grandchild.value)
+        .join(""),
+    });
+  }
+
+  return schemaPayloads;
 }
 
 function normalizeAttributes(attributes: AttributeNode[]): NormalizedAttribute[] {

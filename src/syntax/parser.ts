@@ -32,6 +32,11 @@ function parseChildren(state: TokenizerState, closingTag: string | undefined): S
       continue;
     }
 
+    if (state.input.startsWith("<!", state.index)) {
+      parseDeclaration(state);
+      continue;
+    }
+
     if (peek(state) === "<") {
       if (peek(state, 1) === "/") {
         throw new Error(`Unexpected closing tag near index ${state.index}`);
@@ -48,6 +53,15 @@ function parseChildren(state: TokenizerState, closingTag: string | undefined): S
   }
 
   return nodes;
+}
+
+function parseDeclaration(state: TokenizerState): void {
+  advance(state, 2);
+  const end = state.input.indexOf(">", state.index);
+  if (end === -1) {
+    throw new Error("Unterminated declaration");
+  }
+  state.index = end + 1;
 }
 
 function parseComment(state: TokenizerState): SyntaxNode {

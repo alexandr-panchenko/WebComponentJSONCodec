@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createSchemaRegistry, deserializeHtml, serializeJson } from "../../src/index";
+import {
+  createSchemaRegistry,
+  deserializeHtml,
+  serializeDocumentHtml,
+  serializeJson,
+} from "../../src/index";
 import { schemaFromTable } from "./helpers";
 
 describe("serializeJson", () => {
@@ -64,6 +69,63 @@ describe("serializeJson", () => {
     const serialized = serializeJson(component, registry);
     const reparsed = deserializeHtml(serialized, registry);
 
+    expect(serialized).not.toContain(`"position"`);
+    expect(serialized).not.toContain(`"tags"`);
     expect(reparsed).toEqual(component);
+  });
+
+  test("serializes full HTML documents with embedded schemas", () => {
+    const registry = createSchemaRegistry([
+      schemaFromTable("board-card", [
+        { Property: "title", Type: "string", Default: '""' },
+        { Property: "position.x", Type: "number", Default: "0" },
+        { Property: "position.y", Type: "number", Default: "0" },
+      ]),
+      schemaFromTable("board-note", [
+        { Property: "text", Type: "string", Default: '""' },
+      ]),
+    ]);
+
+    const html = serializeDocumentHtml(
+      [
+        {
+          type: "board-card",
+          properties: {
+            title: "Roadmap",
+            position: { x: 10, y: 20 },
+          },
+          children: [],
+        },
+        {
+          type: "board-note",
+          properties: {
+            text: "Ship parser",
+          },
+          children: [],
+        },
+      ],
+      registry,
+    );
+
+    expect(html).toContain(`<!DOCTYPE html>`);
+    expect(html).toContain(`<script type="application/json" data-schema="board-card">`);
+    expect(html).toContain(`<body>`);
+    expect(
+      deserializeHtml(html, {}, { multipleRoots: true }),
+    ).toMatchObject([
+      {
+        type: "board-card",
+        properties: {
+          title: "Roadmap",
+          position: { x: 10, y: 20 },
+        },
+        children: [],
+      },
+      {
+        type: "board-note",
+        properties: { text: "Ship parser" },
+        children: [],
+      },
+    ]);
   });
 });

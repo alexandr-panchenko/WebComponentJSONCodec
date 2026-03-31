@@ -66,6 +66,42 @@ export function setValueAtPath(
   current[leaf] = value;
 }
 
+export function deleteValueAtPath(
+  target: Record<string, JsonValue>,
+  path: string,
+): void {
+  const parts = path.split(".");
+  deleteAtPath(target, parts, 0);
+}
+
+function deleteAtPath(
+  target: Record<string, JsonValue>,
+  parts: string[],
+  index: number,
+): boolean {
+  const part = parts[index];
+  if (!part) {
+    return Object.keys(target).length === 0;
+  }
+
+  if (index === parts.length - 1) {
+    delete target[part];
+    return Object.keys(target).length === 0;
+  }
+
+  const next = target[part];
+  if (!isPlainObject(next)) {
+    return Object.keys(target).length === 0;
+  }
+
+  const shouldDeleteChild = deleteAtPath(next, parts, index + 1);
+  if (shouldDeleteChild) {
+    delete target[part];
+  }
+
+  return Object.keys(target).length === 0;
+}
+
 export function sortObject(value: JsonValue): JsonValue {
   if (Array.isArray(value)) {
     return value.map(sortObject);

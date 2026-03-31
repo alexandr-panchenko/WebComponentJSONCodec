@@ -17,7 +17,11 @@ export function deserializeHtml(
   options: DeserializeOptions = {},
 ): ComponentNode | ComponentNode[] {
   const document = parseDocumentTree(parseHtmlToAst(input));
-  const components = document.roots.map((root) => deserializeElement(root, registry));
+  const effectiveRegistry = {
+    ...registry,
+    ...createEmbeddedSchemaRegistry(document.schemaPayloads),
+  };
+  const components = document.roots.map((root) => deserializeElement(root, effectiveRegistry));
 
   if (options.multipleRoots) {
     return components;
@@ -250,4 +254,65 @@ function wrapAtPath(
   const root: Record<string, JsonValue> = {};
   setValueAtPath(root, path, value);
   return root;
+}
+
+function createEmbeddedSchemaRegistry(
+  schemaPayloads: Array<{ componentType: string; content: string }>,
+): SchemaRegistry {
+  const registry: SchemaRegistry = {};
+
+  for (const payload of schemaPayloads) {
+    let parsed: JsonValue;
+    try {
+      parsed = JSON.parse(payload.content);
+    } catch {
+      continue;
+    }
+
+    if (!isPlainObject(parsed)) {
+      continue;
+    }
+
+    const properties: ComponentSchema["properties"] = {};
+    for (const [path, definition] of Object.entries(parsed)) {
+      if (!isPlainObject(definition)) {
+        continue;
+      }
+
+      const type = definition.type;
+      if (!isSchemaType(type)) {
+        continue;
+      }
+
+      const defaultValue = definition.default;
+
+      properties[path] = {
+        type,
+        ...(Object.prototype.hasOwnProperty.call(definition, "default") &&
+        defaultValue !== undefined
+          ? { default: defaultValue }
+          : {}),
+      };
+    }
+
+    registry[payload.componentType] = {
+      type: payload.componentType,
+      properties,
+    };
+  }
+
+  return registry;
+}
+
+function isSchemaType(value: JsonValue | undefined): value is SchemaType {
+  return (
+    value === "string" ||
+    value === "number" ||
+    value === "boolean" ||
+    value === "string[]" ||
+    value === "number[]" ||
+    value === "boolean[]" ||
+    value === "number[][]" ||
+    value === "json"
+  );
 }
