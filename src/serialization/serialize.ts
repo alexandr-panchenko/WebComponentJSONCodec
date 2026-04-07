@@ -106,6 +106,9 @@ function collectScalarAttributes(
 
   if (schema) {
     for (const [path, definition] of Object.entries(schema.properties)) {
+      if (!canSerializeSchemaPropertyAsAttribute(path, definition.type)) {
+        continue;
+      }
       const value = getValueAtPath(properties, path);
       if (value === undefined) {
         continue;
@@ -151,7 +154,7 @@ function collectComplexProperties(
         deleteValueAtPath(remaining, path);
         continue;
       }
-      if (formatScalarForAttribute(value) !== undefined) {
+      if (canSerializeSchemaPropertyAsAttribute(path, definition.type) && formatScalarForAttribute(value) !== undefined) {
         deleteValueAtPath(remaining, path);
       }
     }
@@ -186,6 +189,27 @@ function formatScalarForAttribute(value: JsonValue): string | true | undefined {
     return undefined;
   }
   return undefined;
+}
+
+function canSerializeSchemaPropertyAsAttribute(
+  path: string,
+  type: ComponentSchema["properties"][string]["type"],
+): boolean {
+  return (
+    isHtmlSafeSchemaPath(path) &&
+    (
+      type === "string" ||
+      type === "number" ||
+      type === "boolean" ||
+      type === "string[]" ||
+      type === "number[]" ||
+      type === "boolean[]"
+    )
+  );
+}
+
+function isHtmlSafeSchemaPath(path: string): boolean {
+  return path.split(".").every((segment) => /^[a-z0-9-]+$/.test(segment));
 }
 
 function formatAttribute(name: string, value: string | true): string {
