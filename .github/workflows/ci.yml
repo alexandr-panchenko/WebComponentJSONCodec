@@ -24,7 +24,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -43,4 +42,6 @@ jobs:
       - name: Generate CI version
         run: node -e "const fs=require('fs'); const pkgPath='package.json'; const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8')); const parts=String(pkg.version).split('.'); if (parts.length !== 3) { throw new Error('Expected base version to be major.minor.patch'); } pkg.version=`${parts[0]}.${parts[1]}.${process.env.GITHUB_RUN_NUMBER}`; fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);"
 
-      - run: npm publish --provenance --access public
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
