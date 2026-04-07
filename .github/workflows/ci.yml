@@ -12,8 +12,35 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.5
-      - run: bun install
+      - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test
       - run: bun run build
       - run: bun run build:demo
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+      - name: Generate CI version
+        run: node -e "const fs=require('fs'); const pkgPath='package.json'; const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8')); const parts=String(pkg.version).split('.'); if (parts.length !== 3) { throw new Error('Expected base version to be major.minor.patch'); } pkg.version=`${parts[0]}.${parts[1]}.${process.env.GITHUB_RUN_NUMBER}`; fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);"
+
+      - run: npm publish --provenance --access public

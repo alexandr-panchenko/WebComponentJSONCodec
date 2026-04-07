@@ -2,17 +2,31 @@
   "name": "web-component-json-codec",
   "version": "0.1.0",
   "description": "Portable strict HTML ↔ JSON serializer/deserializer for constrained whiteboard documents.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexandr-panchenko/WebComponentJSONCodec"
+  },
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "test": "bun test",
     "typecheck": "bun x tsc --noEmit",
-    "build": "bun build src/index.ts --outdir dist --target browser --format esm",
+    "build": "rm -rf dist && bun build src/index.ts --outdir dist --target browser --format esm && bun x tsc -p tsconfig.build.json",
     "build:demo": "mkdir -p demo/dist && bun build demo/main.ts --outdir demo/dist --target browser --format esm && cp demo/index.html demo/dist/index.html",
     "check": "bun run typecheck && bun test && bun run build && bun run build:demo"
   },
